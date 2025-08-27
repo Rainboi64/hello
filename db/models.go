@@ -10,8 +10,8 @@ import (
 
 type Link struct {
 	ID          int64
+	Source      string
 	Destination string
-	Createdby   int64
 }
 
 type User struct {

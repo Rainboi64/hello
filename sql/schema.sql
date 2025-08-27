@@ -8,10 +8,11 @@ CREATE TABLE users (
     phone_number text
 );
 
-CREATE TABLE links (
+CREATE TABLE IF NOT EXISTS links (
     id BIGSERIAL PRIMARY KEY,
-    destination text NOT NULL,
+    source text NOT NULL,
+    destination text NOT NULL
+    );
 
-    createdBy BIGSERIAL NOT NULL,
-    FOREIGN KEY (createdBy) REFERENCES users(id)
-)
+CREATE INDEX IF NOT EXISTS index_name
+    ON links(source);

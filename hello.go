@@ -4,60 +4,29 @@ import (
 	"context"
 	"example/hello/api"
 	"example/hello/db"
-	"example/hello/util"
+	"example/hello/middleware"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/joho/godotenv"
 )
 
-func run() error {
-	ctx := context.Background()
-
-	conn, err := pgx.Connect(ctx, "dbname=mydb")
+func setupEnv() {
+	err := godotenv.Load()
 	if err != nil {
-		return err
+		log.Fatal("Error loading .env file")
 	}
-	defer conn.Close(ctx)
-
-	queries := db.New(conn)
-
-	users, err := queries.ListUsers(ctx)
-
-	if err != nil {
-		return err
-	}
-
-	log.Println(users)
-
-	password := "topsecret"
-	salt := ""
-
-	passhash, _ := util.HashAndSalt(password, salt)
-
-	user, err := queries.CreateUser(ctx, db.CreateUserParams{
-		FirstName: "Yaman",
-		LastName: "Alhalabi",
-		Email: "yaman.alhalabi@maddo.com",
-		Passhash: passhash,
-		Salt: salt,
-		PhoneNumber: pgtype.Text{String: "+9639872134###", Valid: true},
-	})
-	if err != nil {
-		return err
-	}
-	log.Println(user)
-
-	return nil
 }
 
 func main() {
-	// Set up database connection
-	ctx := context.Background()
+	setupEnv()
 
-	conn, err := pgx.Connect(ctx, "dbname=mydb")
+	ctx := context.Background()
+	conn, err := pgx.Connect(ctx, os.Getenv(("DB_CONNECTION_STRING")))
+	println(os.Getenv("DB_CONNECTION_STRING"))
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
@@ -65,13 +34,21 @@ func main() {
 
 	queries := db.New(conn)
 	r := mux.NewRouter()
-
-	api.SetupUserRoutes(r, queries)
+	r.Use(middleware.Logging())
 
 	r.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
+
+	api.SetupAuthRoutes(r, queries)
+	api.SetupRedirectRoutes(r, queries)
+
+	protected := r.PathPrefix("/api").Subrouter()
+	protected.Use(middleware.ProtectedHandler())
+
+	api.SetupUserRoutes(protected, queries)
+	api.SetupLinkRoutes(protected, queries)
 
 	log.Println("Hello, Server starting on :8080")
 	log.Fatal(http.ListenAndServe(":8080", r))

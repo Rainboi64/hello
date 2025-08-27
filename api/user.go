@@ -13,77 +13,9 @@ import (
 )
 
 func SetupUserRoutes(r *mux.Router, queries *db.Queries) {
-	r.HandleFunc("/users/{id}", createRegisterHandler(queries)).Methods("POST")
 	r.HandleFunc("/users/{id}", createGetUserHandler(queries)).Methods("GET")
 	r.HandleFunc("/users/{id}", createUpdateUserHandler(queries)).Methods("PUT")
 	r.HandleFunc("/users/{id}", createDeleteUserHandler(queries)).Methods("DELETE")
-}
-
-func createRegisterHandler(queries *db.Queries) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-
-		var req struct {
-			FirstName   string `json:"first_name"`
-			LastName    string `json:"last_name"`
-			Email       string `json:"email"`
-			Password    string `json:"password"`
-			PhoneNumber string `json:"phone_number,omitempty"`
-		}
-
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, `{"error": "Invalid JSON request"}`, http.StatusBadRequest)
-			return
-		}
-
-		if req.FirstName == "" || req.LastName == "" || req.Email == "" || req.Password == "" {
-			http.Error(w, `{"error": "Missing required fields: first_name, last_name, email, password"}`, http.StatusBadRequest)
-			return
-		}
-
-		salt := "randomsalt"
-		hashedPassword, err := util.HashAndSalt(req.Password, salt)
-		if err != nil {
-			http.Error(w, `{"error": "Failed to hash password"}`, http.StatusInternalServerError)
-			return
-		}
-
-		var phoneNumber pgtype.Text
-		if req.PhoneNumber != "" {
-			phoneNumber = pgtype.Text{String: req.PhoneNumber, Valid: true}
-		}
-
-		// Create user in database
-		user, err := queries.CreateUser(r.Context(), db.CreateUserParams{
-			FirstName:   req.FirstName,
-			LastName:    req.LastName,
-			Email:       req.Email,
-			Passhash:    hashedPassword,
-			Salt:        salt,
-			PhoneNumber: phoneNumber,
-		})
-
-		if err != nil {
-			http.Error(w, `{"error": "Failed to create user"}`, http.StatusInternalServerError)
-			return
-		}
-
-		response := struct {
-			ID          int64  `json:"id"`
-			FirstName   string `json:"first_name"`
-			LastName    string `json:"last_name"`
-			Email       string `json:"email"`
-			PhoneNumber string `json:"phone_number,omitempty"`
-		}{
-			ID:          user.ID,
-			FirstName:   user.FirstName,
-			LastName:    user.LastName,
-			Email:       user.Email,
-			PhoneNumber: user.PhoneNumber.String,
-		}
-
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(response)
-	}
 }
 
 func createGetUserHandler(queries *db.Queries) http.HandlerFunc {

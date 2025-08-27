@@ -30,7 +30,7 @@ WHERE id = $1;
 
 -- name: CreateLink :one
 INSERT INTO links (
-    destination, createdBy 
+    source, destination
 ) VALUES (
   $1, $2
 )
@@ -38,4 +38,8 @@ RETURNING *;
 
 -- name: GetLink :one 
 SELECT * FROM links 
-WHERE id = $1 LIMIT 1;
+WHERE source = $1 LIMIT 1;
+
+-- name: GetUserByEmail :one
+SELECT * FROM users
+WHERE email = $1 LIMIT 1;

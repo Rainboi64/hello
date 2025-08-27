@@ -13,22 +13,22 @@ import (
 
 const createLink = `-- name: CreateLink :one
 INSERT INTO links (
-    destination, createdBy 
+    source, destination
 ) VALUES (
   $1, $2
 )
-RETURNING id, destination, createdby
+RETURNING id, source, destination
 `
 
 type CreateLinkParams struct {
+	Source      string
 	Destination string
-	Createdby   int64
 }
 
 func (q *Queries) CreateLink(ctx context.Context, arg CreateLinkParams) (Link, error) {
-	row := q.db.QueryRow(ctx, createLink, arg.Destination, arg.Createdby)
+	row := q.db.QueryRow(ctx, createLink, arg.Source, arg.Destination)
 	var i Link
-	err := row.Scan(&i.ID, &i.Destination, &i.Createdby)
+	err := row.Scan(&i.ID, &i.Source, &i.Destination)
 	return i, err
 }
 
@@ -83,14 +83,14 @@ func (q *Queries) DeleteUser(ctx context.Context, id int64) error {
 }
 
 const getLink = `-- name: GetLink :one
-SELECT id, destination, createdby FROM links 
-WHERE id = $1 LIMIT 1
+SELECT id, source, destination FROM links 
+WHERE source = $1 LIMIT 1
 `
 
-func (q *Queries) GetLink(ctx context.Context, id int64) (Link, error) {
-	row := q.db.QueryRow(ctx, getLink, id)
+func (q *Queries) GetLink(ctx context.Context, source string) (Link, error) {
+	row := q.db.QueryRow(ctx, getLink, source)
 	var i Link
-	err := row.Scan(&i.ID, &i.Destination, &i.Createdby)
+	err := row.Scan(&i.ID, &i.Source, &i.Destination)
 	return i, err
 }
 
@@ -101,6 +101,26 @@ WHERE id = $1 LIMIT 1
 
 func (q *Queries) GetUser(ctx context.Context, id int64) (User, error) {
 	row := q.db.QueryRow(ctx, getUser, id)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.FirstName,
+		&i.LastName,
+		&i.Email,
+		&i.Passhash,
+		&i.Salt,
+		&i.PhoneNumber,
+	)
+	return i, err
+}
+
+const getUserByEmail = `-- name: GetUserByEmail :one
+SELECT id, first_name, last_name, email, passhash, salt, phone_number FROM users
+WHERE email = $1 LIMIT 1
+`
+
+func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByEmail, email)
 	var i User
 	err := row.Scan(
 		&i.ID,
